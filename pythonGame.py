@@ -11,7 +11,7 @@ clock = pygame.time.Clock()
 #ilosc fps
 fps = 60
 #ilosc obiektow
-blockAmount=2
+blockAmount=3
 #rozmiar siatki
 cellSize = 50
 #sila grawitacji
@@ -22,6 +22,8 @@ playerImgAmount=10
 meshColor = (255, 255, 255)
 # flaga dla myszy
 clicked = False
+# flaga do konca gry
+stillPlayFlag = True
 # ---------------------------  WCZYTANIE PLANSZY ----------------
 # tworzenie listy siatki
 if path.exists('data'):
@@ -40,6 +42,8 @@ pygame.display.set_caption("Gierka")
 backgroundImg = pygame.image.load('img/background.png')
 blockImg = pygame.image.load('img/grassCenter.png')
 blockImg2 = pygame.image.load('img/grass.png')
+finishImg = pygame.image.load('img/signExit.png')
+endImg=pygame.image.load('img/endImg.png')
 playerWalkImg = []
 for i in range (0,playerImgAmount) :
     img=pygame.image.load(f'img/p1_walk0{i}.png')
@@ -57,6 +61,9 @@ def drawBlocks():
                     screen.blit(img, (col * cellSize, row * cellSize))
                 if meshList[row][col] == 2:
                     img = pygame.transform.scale(blockImg2, (cellSize, cellSize))
+                    screen.blit(img, (col * cellSize, row * cellSize))
+                if meshList[row][col] == 3:
+                    img = pygame.transform.scale(finishImg, (cellSize, cellSize))
                     screen.blit(img, (col * cellSize, row * cellSize))
 
                 rect= Rect(col * cellSize, row * cellSize,cellSize,cellSize)
@@ -89,11 +96,11 @@ class Player:
             # detekcja kolizji
             if self.rect.x+moveX >=0:       # jesli po przesunieciu plaer jest dalej w planszy
                 #wartosc komorki na lewo od lewego gornego boku playera
-                leftUpCell=meshList[int(self.rect.y/cellSize)][int((self.rect.x+moveX)/cellSize)]
+                leftUpCell=meshList[int((self.rect.y+2)/cellSize)][int((self.rect.x+moveX)/cellSize)]
                 #wartosc komorki na lewo od lewego dolnego boku playera
-                leftDownCell=meshList[int((self.rect.y+cellSize)/cellSize)][int((self.rect.x+moveX)/cellSize)]
+                leftDownCell=meshList[int(((self.rect.y-2)+cellSize)/cellSize)][int((self.rect.x+moveX)/cellSize)]
                 #jesli w ktorejs z tych komorek jest przeszkoda
-                if leftUpCell!=0 or leftDownCell != 0:
+                if (leftUpCell!=0 and leftUpCell!=3) or (leftDownCell != 0 and leftDownCell != 3):
                     #obliczam nowe przesuniecie tak aby player znajdowal sie zaraz przy przeszkodzie
                     moveX=int(self.rect.x/cellSize)*cellSize - self.rect.x
             else:
@@ -104,8 +111,8 @@ class Player:
             self.imgNumber+=1
             moveX += self.strength
             if self.rect.x+cellSize+moveX < screenWidth:
-                rightUpCell = meshList[int(self.rect.y/cellSize)][int((self.rect.x+cellSize+moveX)/cellSize)]
-                rightDownCell=meshList[int((self.rect.y+cellSize)/cellSize)][int((self.rect.x+cellSize+moveX)/cellSize)]
+                rightUpCell = meshList[int((self.rect.y+2)/cellSize)][int((self.rect.x+cellSize+moveX)/cellSize)]
+                rightDownCell=meshList[int(((self.rect.y-2)+cellSize)/cellSize)][int((self.rect.x+cellSize+moveX)/cellSize)]
                 if rightUpCell!=0 or rightDownCell != 0:
                     int((self.rect.x+moveX)/cellSize)*cellSize
                     moveX=int((self.rect.x+moveX)/cellSize)*cellSize - self.rect.x -1
@@ -116,8 +123,8 @@ class Player:
             self.canJump=False
             moveY -= cellSize*2
             if self.rect.y+moveY >=0 :
-                upLeftCell = meshList[int((self.rect.y+moveY)/cellSize)][int(self.rect.x/cellSize)]
-                upRightCell=meshList[int((self.rect.y+moveY)/cellSize)][int((self.rect.x+cellSize-1)/cellSize)]
+                upLeftCell = meshList[int((self.rect.y+moveY)/cellSize)][int((self.rect.x+2)/cellSize)]
+                upRightCell=meshList[int((self.rect.y+moveY)/cellSize)][int((self.rect.x+cellSize-2)/cellSize)]
                 if upLeftCell!=0 or upRightCell != 0:
                     moveY=int((self.rect.y+moveY)/cellSize)*cellSize +cellSize - self.rect.y
             else:
@@ -126,8 +133,8 @@ class Player:
         # grawitacja
         moveY+=gravity
         if self.rect.y+moveY <screenHeight :
-            downLeftCell = meshList[int((self.rect.y+cellSize+moveY)/cellSize)][int((self.rect.x+1)/cellSize)]
-            downRightCell=meshList[int((self.rect.y+cellSize+moveY)/cellSize)][int((self.rect.x-1+cellSize)/cellSize)]
+            downLeftCell = meshList[int((self.rect.y+cellSize+moveY)/cellSize)][int((self.rect.x+2)/cellSize)]
+            downRightCell=meshList[int((self.rect.y+cellSize+moveY)/cellSize)][int(((self.rect.x-2)+cellSize)/cellSize)]
             if downLeftCell!=0 or downRightCell != 0:
                 self.canJump=True
                 moveY= (int((self.rect.y+cellSize+moveY)/cellSize)*cellSize)-(self.rect.y+cellSize) -1
@@ -146,6 +153,14 @@ class Player:
         if self.imgNumber == (playerImgAmount-1):
             self.imgNumber=0
 
+        # gdy player swoim srodkiem wejdzie na element nr 3 to koniec gry
+        if meshList[int((self.rect.y+(cellSize/2))/cellSize)][int((self.rect.x+(cellSize/2))/cellSize)]==3:
+            return False
+        else:
+            return True
+
+
+
 
 # Tworzenie playera
 player= Player(0,screenHeight-(cellSize*3),playerWalkImg,10)
@@ -159,8 +174,13 @@ while run:
     clock.tick(fps)
     screen.blit(backgroundImg, (0, 0))
     # rysowanie siatki i obrazow
-    drawBlocks()
-    player.move()
+
+    if stillPlayFlag:
+        drawBlocks()
+        stillPlayFlag = player.move()
+    else:
+        screen.blit(pygame.transform.scale(endImg,(screenWidth,screenHeight)),(0,0))
+
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
