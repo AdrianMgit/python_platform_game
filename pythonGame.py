@@ -14,44 +14,44 @@ fps = 60
 blockAmount=2
 #rozmiar siatki
 cellSize = 50
-#grawitacja
-gravity = 3
-
+#sila grawitacji
+gravity = 6
+#ilosc obrazow playera
+playerImgAmount=10
 # kolor siatki
 meshColor = (255, 255, 255)
 # flaga dla myszy
 clicked = False
-
-
+# ---------------------------  WCZYTANIE PLANSZY ----------------
 # tworzenie listy siatki
 if path.exists('data'):
     pickle_in = open('data', 'rb')
     meshList = pickle.load(pickle_in)
-
-
 columnAmount=len(meshList[0])
 rowAmount = len(meshList)
-# rozmiary okno, wymiary musza byc podzielne przez rozmiar siatki
+# rozmiary okna
 screenWidth = columnAmount*cellSize
 screenHeight = rowAmount*cellSize
-
 screen = pygame.display.set_mode((screenWidth, screenHeight))
 pygame.display.set_caption("Gierka")
 
-# ---------------- WCZYTANIE OBRAZOW -----------------------
+
+# --------------------- WCZYTANIE OBRAZOW -----------------------
 backgroundImg = pygame.image.load('img/background.png')
 blockImg = pygame.image.load('img/grassCenter.png')
 blockImg2 = pygame.image.load('img/grass.png')
-playerImg = pygame.image.load('img/p1_walk01.png')
+playerWalkImg = []
+for i in range (0,playerImgAmount) :
+    img=pygame.image.load(f'img/p1_walk0{i}.png')
+    playerWalkImg.append(pygame.transform.scale(img,(cellSize,cellSize)))
 
 
 
-# ----------------- FUNKCJA RYSUJACA OBRAZY ------
+# ------------------------------------ FUNKCJA RYSUJACA OBRAZY ------
 def drawBlocks():
     for row in range(rowAmount):
         for col in range(columnAmount):
             if meshList[row][col] > 0:
-                # jedno klikniecie = ziemia
                 if meshList[row][col] == 1:
                     img = pygame.transform.scale(blockImg, (cellSize, cellSize))
                     screen.blit(img, (col * cellSize, row * cellSize))
@@ -63,35 +63,45 @@ def drawBlocks():
                 pygame.draw.rect(screen,(255,255,255),rect,1)
 
 
-print(meshList)
 
 # ---------------------------------- KLASA PLAYER ------------------------
 class Player:
-    def __init__(self,x,y,image, strength):
-        self.image = pygame.transform.scale(image,(cellSize,cellSize))
-        self.rect = self.image.get_rect()
+    def __init__(self,x,y,images, strength):
+        self.images = images
+        self.rect = self.images[0].get_rect()
         self.rect.x=x
         self.rect.y=y
         self.strength = strength
-
+        self.canJump= True
+        self.imgNumber=0
 
     def move(self):
-
+        #ustawienie danego obrazu z listy obrazow
+        img=self.images[self.imgNumber]
+        # presuniecia playera w lewo i w prawo
         moveX=0
         moveY=0
-
+        # obsluga klawiszy
         key=pygame.key.get_pressed()
         if key[pygame.K_LEFT]:
-            moveX-= self.strength
-            if self.rect.x+moveX >=0:
+            self.imgNumber+=1  #kolejny obraz
+            moveX-= self.strength  #przesuniecie
+            # detekcja kolizji
+            if self.rect.x+moveX >=0:       # jesli po przesunieciu plaer jest dalej w planszy
+                #wartosc komorki na lewo od lewego gornego boku playera
                 leftUpCell=meshList[int(self.rect.y/cellSize)][int((self.rect.x+moveX)/cellSize)]
+                #wartosc komorki na lewo od lewego dolnego boku playera
                 leftDownCell=meshList[int((self.rect.y+cellSize)/cellSize)][int((self.rect.x+moveX)/cellSize)]
+                #jesli w ktorejs z tych komorek jest przeszkoda
                 if leftUpCell!=0 or leftDownCell != 0:
+                    #obliczam nowe przesuniecie tak aby player znajdowal sie zaraz przy przeszkodzie
                     moveX=int(self.rect.x/cellSize)*cellSize - self.rect.x
             else:
+                #gdy player wychodzi poza plansze obliczam przesuniecie tak aby byl zaraz na skraju planszy
                 moveX=-self.rect.x
 
         elif key[pygame.K_RIGHT]:
+            self.imgNumber+=1
             moveX += self.strength
             if self.rect.x+cellSize+moveX < screenWidth:
                 rightUpCell = meshList[int(self.rect.y/cellSize)][int((self.rect.x+cellSize+moveX)/cellSize)]
@@ -102,18 +112,16 @@ class Player:
             else:
                 moveX=screenWidth-(self.rect.x+cellSize)
 
-
-
-        elif key[pygame.K_UP]:
-            moveY -= self.strength
+        elif key[pygame.K_UP] and self.canJump:
+            self.canJump=False
+            moveY -= cellSize*2
             if self.rect.y+moveY >=0 :
                 upLeftCell = meshList[int((self.rect.y+moveY)/cellSize)][int(self.rect.x/cellSize)]
                 upRightCell=meshList[int((self.rect.y+moveY)/cellSize)][int((self.rect.x+cellSize-1)/cellSize)]
                 if upLeftCell!=0 or upRightCell != 0:
-                    moveY=0
+                    moveY=int((self.rect.y+moveY)/cellSize)*cellSize +cellSize - self.rect.y
             else:
-                moveY=0
-
+                moveY=0 - self.rect.y
 
         # grawitacja
         moveY+=gravity
@@ -121,51 +129,26 @@ class Player:
             downLeftCell = meshList[int((self.rect.y+cellSize+moveY)/cellSize)][int((self.rect.x+1)/cellSize)]
             downRightCell=meshList[int((self.rect.y+cellSize+moveY)/cellSize)][int((self.rect.x-1+cellSize)/cellSize)]
             if downLeftCell!=0 or downRightCell != 0:
+                self.canJump=True
                 moveY= (int((self.rect.y+cellSize+moveY)/cellSize)*cellSize)-(self.rect.y+cellSize) -1
         else:
             moveY=0
+            self.canJump=True
 
-
-        # if self.rect.y + moveY >(screenHeight - self.image.get_height()):
-        #     self.rect.y = screenHeight- self.image.get_height()
-        # elif self.rect.y + moveY <0:
-        #     self.rect.y = 0
-        # if self.rect.x + moveX > (screenWidth - self.image.get_width()):
-        #     self.rect.x = screenWidth - self.image.get_width()
-        # elif self.rect.x + moveX <0:
-        #     self.rect.x = 0
-
-
+        # obliczzenie wspolrzednych x y playera po przesunieciu
         self.rect.x +=moveX
         self.rect.y +=moveY
-
-
-
-        screen.blit(self.image,self.rect)
+        # rysowanie playera
+        screen.blit(img,self.rect)
+        # rysowanie siatki na playerze
         pygame.draw.rect(screen,(0,0,0),self.rect,1)
+        # powrot do poczatku listy obrazow playera
+        if self.imgNumber == (playerImgAmount-1):
+            self.imgNumber=0
 
 
-
-
-
-
-
-
-player= Player(0,screenHeight-(cellSize*3),playerImg,10)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Tworzenie playera
+player= Player(0,screenHeight-(cellSize*3),playerWalkImg,10)
 
 
 
@@ -179,13 +162,9 @@ while run:
     drawBlocks()
     player.move()
 
-
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
-
-
-
 
     pygame.display.update()
 
