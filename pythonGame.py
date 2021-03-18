@@ -79,7 +79,8 @@ class Player:
         self.rect.x=x
         self.rect.y=y
         self.strength = strength
-        self.canJump= True
+        self.maxJumpCount=4
+        self.jumpCount= 0
         self.imgNumber=0
 
     def move(self):
@@ -102,7 +103,8 @@ class Player:
                 #jesli w ktorejs z tych komorek jest przeszkoda
                 if (leftUpCell!=0 and leftUpCell!=3) or (leftDownCell != 0 and leftDownCell != 3):
                     #obliczam nowe przesuniecie tak aby player znajdowal sie zaraz przy przeszkodzie
-                    moveX=int(self.rect.x/cellSize)*cellSize - self.rect.x
+                    moveX=int((self.rect.x+1)/cellSize)*cellSize - self.rect.x
+
             else:
                 #gdy player wychodzi poza plansze obliczam przesuniecie tak aby byl zaraz na skraju planszy
                 moveX=-self.rect.x
@@ -113,22 +115,23 @@ class Player:
             if self.rect.x+cellSize+moveX < screenWidth:
                 rightUpCell = meshList[int((self.rect.y+2)/cellSize)][int((self.rect.x+cellSize+moveX)/cellSize)]
                 rightDownCell=meshList[int(((self.rect.y-2)+cellSize)/cellSize)][int((self.rect.x+cellSize+moveX)/cellSize)]
-                if rightUpCell!=0 or rightDownCell != 0:
-                    int((self.rect.x+moveX)/cellSize)*cellSize
+                if (rightUpCell!=0 and rightUpCell!=3) or (rightDownCell != 0 and rightDownCell != 3):
                     moveX=int((self.rect.x+moveX)/cellSize)*cellSize - self.rect.x -1
             else:
                 moveX=screenWidth-(self.rect.x+cellSize)
 
-        elif key[pygame.K_UP] and self.canJump:
-            self.canJump=False
-            moveY -= cellSize*2
-            if self.rect.y+moveY >=0 :
-                upLeftCell = meshList[int((self.rect.y+moveY)/cellSize)][int((self.rect.x+2)/cellSize)]
-                upRightCell=meshList[int((self.rect.y+moveY)/cellSize)][int((self.rect.x+cellSize-2)/cellSize)]
-                if upLeftCell!=0 or upRightCell != 0:
-                    moveY=int((self.rect.y+moveY)/cellSize)*cellSize +cellSize - self.rect.y
-            else:
-                moveY=0 - self.rect.y
+        elif key[pygame.K_UP] :
+            if self.jumpCount<self.maxJumpCount:
+                moveY -= cellSize-1
+                if self.rect.y+moveY >=0 :
+                    upLeftCell = meshList[int((self.rect.y+moveY)/cellSize)][int((self.rect.x+2)/cellSize)]
+                    upRightCell=meshList[int((self.rect.y+moveY)/cellSize)][int((self.rect.x+cellSize-2)/cellSize)]
+                    if (upLeftCell!=0 and upLeftCell!=3) or (upRightCell != 0 and upRightCell != 3):
+                        moveY=int((self.rect.y+moveY)/cellSize)*cellSize +cellSize - self.rect.y
+                else:
+                    moveY=0 - self.rect.y
+
+                self.jumpCount+=1
 
         # grawitacja
         moveY+=gravity
@@ -136,11 +139,11 @@ class Player:
             downLeftCell = meshList[int((self.rect.y+cellSize+moveY)/cellSize)][int((self.rect.x+2)/cellSize)]
             downRightCell=meshList[int((self.rect.y+cellSize+moveY)/cellSize)][int(((self.rect.x-2)+cellSize)/cellSize)]
             if downLeftCell!=0 or downRightCell != 0:
-                self.canJump=True
+                self.jumpCount=0
                 moveY= (int((self.rect.y+cellSize+moveY)/cellSize)*cellSize)-(self.rect.y+cellSize) -1
         else:
             moveY=0
-            self.canJump=True
+            self.jumpCount=0
 
         # obliczzenie wspolrzednych x y playera po przesunieciu
         self.rect.x +=moveX
