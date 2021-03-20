@@ -9,9 +9,9 @@ clock = pygame.time.Clock()
 
 # ---------------------------------------- Stałe wartosci ----------------------------------------
 # ilosc fps
-fps = 30
+fps = 40
 # ilosc obiektow
-blockAmount = 4
+blockAmount = 5
 # rozmiar siatki
 cellSize = 30
 # sila grawitacji
@@ -46,6 +46,7 @@ finishBlockImg = pygame.transform.scale(pygame.image.load('img/signExit.png'), (
 blockerMadImg = pygame.transform.scale(pygame.image.load('img/blockerMad.png'), (cellSize, cellSize))
 wonImg = pygame.transform.scale(pygame.image.load('img/youWonImg.png'), (screenWidth, screenHeight))
 lostImg = pygame.transform.scale(pygame.image.load('img/youLostImg.png'), (screenWidth, screenHeight))
+enemyImg = pygame.transform.scale(pygame.image.load('img/mouse.png'), (cellSize, cellSize))
 
 
 # wartosc komorki: [obraz, (0=pusta komorka -tlo, 1=przeszkoda, -1=zabicie, 2 = wygrana)]
@@ -54,8 +55,10 @@ blockDictionary = {
     1: [blockImg, 1],
     2: [blockImg2, 1],
     3: [finishBlockImg, 2],
-    4: [blockerMadImg, -1]
+    4: [blockerMadImg, -1],
+    5: [enemyImg, -1]
 }
+
 
 
 
@@ -73,10 +76,10 @@ for i in range(0, playerImgAmount):
 def drawBlocks():
     for row in range(rowAmount):
         for col in range(columnAmount):
-            if meshList[row][col] > 0: # rysuje tylko te bloki w ktorych cos jest
+            if meshList[row][col] > 0 and meshList[row][col] !=5: # rysuje tylko te bloki w ktorych cos jest
                 screen.blit(blockDictionary[meshList[row][col]][0], (col * cellSize, row * cellSize))
-                #rect = Rect(col * cellSize, row * cellSize, cellSize, cellSize)
-                #pygame.draw.rect(screen, (255, 255, 255), rect, 1)
+                rect = Rect(col * cellSize, row * cellSize, cellSize, cellSize)
+                pygame.draw.rect(screen, (255, 255, 255), rect, 1)
 
 
 
@@ -176,7 +179,7 @@ class Player:
         # rysowanie playera
         screen.blit(img, self.rect)
         # rysowanie siatki na playerze
-        #pygame.draw.rect(screen, (0, 0, 0), self.rect, 1)
+        pygame.draw.rect(screen, (0, 0, 0), self.rect, 1)
         # powrot do poczatku listy obrazow playera
         if self.imgNumber == (playerImgAmount - 1):
             self.imgNumber = 0
@@ -193,11 +196,70 @@ class Player:
             return 0
 
 
+# ---------------------------------- KLASA ENEMY ------------------------
+class Enemy:
+    def __init__(self, x, y, image, strength,direction):
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.strength = strength
+        self.direction=direction
+
+    def move(self):
+        meshList[int(self.rect.y/cellSize)][int(self.rect.x/cellSize)]=0
+        moveX=0
+        moveY=0
+
+        if self.direction == -1:
+            moveX-=self.strength
+            leftCell=meshList[int(self.rect.y / cellSize)][
+                int((self.rect.x + moveX) / cellSize)]
+            leftDownCell=meshList[int((self.rect.y+cellSize) / cellSize)][
+                int((self.rect.x + moveX) / cellSize)]
+
+            if blockDictionary[leftCell][1]!=0 or (blockDictionary[leftCell][1]==0 and blockDictionary[leftDownCell][1]==0):
+                moveX = int(self.rect.x / cellSize) * cellSize - self.rect.x
+                self.direction*=-1
+
+        elif self.direction == 1:
+            moveX+=self.strength
+            rightCell=meshList[int(self.rect.y / cellSize)][
+                int((self.rect.x +cellSize + moveX) / cellSize)]
+            rightDownCell=meshList[int((self.rect.y+cellSize) / cellSize)][
+                int((self.rect.x+cellSize + moveX) / cellSize)]
+
+            if blockDictionary[rightCell][1]!=0 or (blockDictionary[rightCell][1]==0 and blockDictionary[rightDownCell][1]==0):
+                moveX = int((self.rect.x + moveX) / cellSize) * cellSize - self.rect.x
+                self.direction*=-1
+
+
+        self.rect.x += moveX
+        self.rect.y += moveY
+        screen.blit(self.image, self.rect)
+        meshList[int(self.rect.y/cellSize)][int(self.rect.x/cellSize)]=5
+
+
+
+
+
 # Tworzenie playera
 player = Player(0, screenHeight - (cellSize * 3), playerWalkImg, 10)
 
+
+# lista poruszajacych sie wrogow
+enemyMovingList =[]
+#wczytanie poczatkowych pozycji wrogow do listy
+for row in range(rowAmount):
+    for col in range(columnAmount):
+        if meshList[row][col] == 5:
+            enemyMovingList.append(Enemy(col * cellSize,row * cellSize,enemyImg,4,-1))
+            meshList[row][col] = 0
+
 # flaga do uruchomionego okna
 run = True
+
+print(enemyMovingList)
 
 # -------------------------------- GLOWNA PETLA OKNA ---------------------------
 while run:
@@ -207,6 +269,10 @@ while run:
 
     if stillPlayFlag == 0:
         drawBlocks()
+
+        for enemy in enemyMovingList:
+            enemy.move()
+
         stillPlayFlag = player.move()
     elif stillPlayFlag == 1:
         screen.blit(wonImg, (0, 0))
